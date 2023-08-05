@@ -1,0 +1,299 @@
+---
+title: "Hackathon Project"
+author: "Group 14 - Justin Luu, Mihir Ajgaonkar, Vraj Diyora"
+date: '2023-02-08'
+output: 
+  cleanrmd::html_document_clean:
+    theme: new.css
+    toc : true
+    toc_float : true
+---
+
+```{r setup, include= FALSE}
+
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r Libraries, include= FALSE}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(magrittr)
+library(gridExtra)
+library(corrplot)
+library(reshape2)
+library(data.table)
+library(scales)
+library(ggalluvial)
+library(corrplot)
+library(tidyr)
+library(data.table)
+library(treemap)
+library(RColorBrewer)
+library(plotly)
+library(treemapify)
+library(lubridate)
+library(chron)
+library(reshape)
+library(maps)
+library(ggmap)
+library(rgdal)
+library(sp)
+library(grid)
+library(leaflet)
+library(extrafont)
+```
+
+```{r Data, include=TRUE, echo=TRUE}
+
+setwd("D:/COURSEWORK/COMP VIZ/Hakcathon")
+getwd()
+
+chicago <- read.csv("chicago crime (2).csv", na.strings = "")
+
+```
+```{r , echo=FALSE, fig.align='center'}
+  knitr::include_graphics("chicgologo.png", error = FALSE )
+
+```
+
+# INTRODUCTION & PROBLEM STATEMENT
+
+The City of Chicago's Police Department stores their city's reported crimes in their database called CLEAR (Citizens Law Enforcement Analysis and Reporting) system. With the exception of omitted personal information in order to protect the privacy of crime victims, the data set is organized by address locations where the reported crimes occurred. The data set also includes the descriptions and types of crimes committed, along with whether an arrest was made or not.
+
+The data set presents data from 2001 to Present. Using the original data set, our team cleaned the data and primarily focused on the reported crime data within the past five years between 2018-2022. We chose to focus on this segment of time because we wanted to look at the most recent data and analyze the trend of crime (especially during the COVID-19 pandemic, for example). By breaking down the different types of crimes, we hope to understand the effects of the analyzed data on what the City of Chicago could hope to lawfully change to make the city a safer place. Of course, any city would want to keep the level of crime relatively low.
+
+Throughout our analysis, our team has put together visualizations using the data set intending to address certain questions. We take a look at different types of crimes, the specific time and location occurrences of crimes, what types of weapon-related crimes occurred, whether arrests were made, etc. We hope the information provided will be of great value in addressing the City of Chicago's crime data.
+
+# SECTION 1 - CRIME SETTINGS
+
+## 1: Heat map of number of incidents reported based on district
+```{r Task 1, echo=FALSE, warning= FALSE } 
+chi_dat = as.data.table(chicago)
+chi_tab = chi_dat[Longitude!=""]
+chi_tab = chi_dat[Latitude!=""]
+coordinates(chi_tab) = c("Longitude","Latitude")
+crs.geo1 = CRS("+proj=longlat")
+proj4string(chi_tab) = crs.geo1
+# plot(chi_tab, pch = 20, col = "steelblue")
+chicago1 = readOGR(dsn = "D:/COURSEWORK/COMP VIZ/Hakcathon", layer = "geo_export_f92ce0c1-50fe-4875-b937-cbbc9fdf18c8")
+# points(chi_tab, pch = 20, col = "#fbc4ab")
+proj4string(chicago1) = crs.geo1
+chi_agg = aggregate(x=chi_tab["ID"],by=chicago1,FUN=length)
+qpal = colorBin("Reds", chi_agg$ID, bins=4)
+# leaflet(chi_agg) %>%
+# addPolygons(stroke = TRUE,opacity = 1,fillOpacity = 0.5, smoothFactor = 0.5,
+#   color="black",fillColor = ~qpal(ID),weight = 1) %>%
+# addLegend(values=~ID,pal=qpal,title="Incidents")
+
+chi_agg@data$ID[75] = as.integer(0)
+chi_agg@data$ID[77] = as.integer(0)
+chi_agg@data$ID[73] = as.integer(0)
+chi_agg@data$ID[36] = as.integer(0)
+chi_agg@data$ID[12] = as.integer(0)
+chi_agg@data$ID[71] = as.integer(0)
+chi_agg@data$ID[13] = as.integer(0)
+
+bins <- c(0, 100, 200, 300, 400, 500, 600, 700, 800)
+qpal = colorBin("Reds", chi_agg$ID, bins=bins)
+
+labels <- sprintf(
+  "<strong>%s</strong>",
+  chi_agg$ID
+) %>% lapply(htmltools::HTML)
+
+leaflet(chi_agg) %>%
+  addPolygons(stroke = TRUE,opacity = 1,fillOpacity = 0.5, smoothFactor = 0.5,
+              color="black",fillColor = ~qpal(ID),weight = 1, label = labels,
+              labelOptions = labelOptions(
+                style = list("font-weight" = "normal", padding = "3px 8px"),
+                textsize = "15px",
+                direction = "auto")) %>%
+  addLegend(values=~ID,pal=qpal,title="Incidents") 
+
+```
+Output shows the number of incidents reported in Chicago. The map displays the distribution of incidents in Chicago, aggregated into different areas of the city.it also includes a legend and labels showing the number of incidents. The incidents are then binned into ranges and color-coded using the 'colorBin' function. then we set the coordination reference system for the longitude and latitude which is important in mapping. The map also includes a legend and labels showing the number of incidents.
+
+
+## 2: What types of weapons were related to assault crimes?
+```{r Task 2, echo= FALSE, warning= FALSE}
+
+c1 <- chicago %>% filter(Primary.Type=='ASSAULT') %>% group_by(IUCR) %>% summarise(count=n())
+c2 <- filter(c1, count < 148)
+CRIME.TYPE <- c('HANDGUN','FIREARM','KNIFE','WEAPON','HANDGUN','FIREARM','KNIFE','WEAPON')
+c3 <- mutate(c2, CRIME.TYPE)
+
+bar <- plot_ly(c3, x=~CRIME.TYPE, y=~count, type = "bar",marker = list(color = "#e5383b")) %>%        
+layout(title = "NUMBER OF ASSAULTS BASED ON IUCR CODE",
+    xaxis = list(title = "Type of Weapon"),
+    yaxis = list(title = "Count"),
+    plot_bgcolor = "#161a1d")
+bar
+
+```
+For the number of assaults based on IUCR codes, we summarised the IUCR and split the list count number with the help of a filter, on the bases of that table we add the new column and there data with the help of 'mutate' variable which is actually a replica of description from dataset Chicago crime.after we moved to the final plotting for that I have used the Plot_ly codes for the bar plot and for the color we used the MARKER variable . From the output, we can see that number of weapons used in Chicago as per the IUCR .
+
+
+
+## 3: What was the frequency of crimes in the top 5 types of locations?
+```{r Task 3, echo=FALSE, warning= FALSE, fig.width = 6, fig.height = 6}
+
+#top 5 location description
+
+p1 <- chicago %>% filter(Location.Description==c("ALLEY","APARTMENT","RESIDENCE","SIDEWALK","STREET"))
+p2 <- ggplot(p1,aes(x = Location.Description, fill = Frequency_Location)) +
+          geom_bar(width = 1, fill=c("#E85D04","#DC2F02","#D00000","#9D0208", "#6A040F")) + 
+          labs(y="Number of Crimes", x = "Location Description", color="Frequency") + labs(title="FREQUENCY OF CRIME IN TOP 5 LOCATION DESCRIPTIONS") +
+          theme(legend.title = element_text(family="Arial",colour="black", size=12)) + theme(legend.position = "right") + labs(fill = "Frequency")
+
+
+p2 + coord_polar(theta = "x")
+
+```
+This is the graphical representation of top 5 crime location in the chicago , and it also cleared that street is the place with highest number of crimes occured . lets see about that graph. firstly,we used the filter for the top location from the location description column from chicago dataset . then we used the ggplot to show the arial view.
+
+
+
+
+## 4: What time of day did the most crimes occur?
+```{r Task 4, echo=FALSE, warning= FALSE }
+
+hours <- hour(dmy_hm(chicago$Date))
+chicagotime <- mutate(chicago,hours)
+chic2 <- chicagotime %>% group_by(hours) %>% summarise(total=n()) %>% drop_na()
+
+p2 <- chic2 %>%
+    plot_ly(x=~hours, y=~total, type = "bar",marker = list(color = "#e5383b")) %>%
+    layout(title = "CRIMES COMMITTED MOST IN A DAY",
+    xaxis = list(title = "Time in 24 Hour Format"),
+    yaxis = list(title = "Count of Crimes Committed"),
+    plot_bgcolor = "#161a1d")
+p2
+
+```
+
+This graphical representation provides us with crucial information regarding the peak hours of criminal activity, allowing us to allocate our most capable officers to duty during those times and maintain heightened vigilance. By having this understanding of the pattern of criminal incidents, we can implement effective preventive measures and ensure the safety of the community. This chart is an essential tool in crime management and helps law enforcement agencies allocate their resources more efficiently.
+
+# SECTION 2 - CRIME TYPES
+
+## 1: How many weapon-related crimes occurred in the last 5 years (2018-2022)?
+```{r Task 5, echo=FALSE, warning= FALSE }
+
+## Types of Weapon-related Crimes 
+
+# Donut Chart
+gun <- str_which(chicago$Weapon,"GUN")
+knife <- str_which(chicago$Weapon,"KNIFE")
+other <- str_which(chicago$Weapon,"OTHER")
+
+gun_total = length(gun)       # Adds all variations of gun-related crimes from Description column
+knife_total = length(knife)   # Knife-related crimes from Description column
+other_total = length(other)   # Adds all other weapon-related crimes from Description column
+
+weapons_total = sum(gun_total, knife_total, other_total)
+
+# find the counts of all categories (based on 'Weapon' type)
+weapons_plot <- chicago %>% group_by(Weapon) %>% summarize(Count = n())
+
+# Compute percentages
+weapons_plot$fraction = weapons_plot$Count / sum(weapons_plot$Count)
+
+# Compute the cumulative percentages (top of each rectangle)
+weapons_plot$ymax = cumsum(weapons_plot$fraction)
+
+# Compute the cumulative percentages for each column index - 1
+weapons_plot$ymin = c(0, weapons_plot$ymax[1:(nrow(weapons_plot)-1)])
+
+# create a column for the label positions in the chart
+weapons_plot$labelPosition <- (weapons_plot$ymax + weapons_plot$ymin) / 2
+
+# create a column for the label value
+weapons_plot$label <- paste0(weapons_plot$Weapon, "\n ", weapons_plot$Count)
+
+donut_p1 <- ggplot(weapons_plot, aes(ymax=ymax, ymin=ymin, xmax=4, xmin=3, fill=Weapon)) +
+  geom_rect() +
+  coord_polar(theta="y") + 
+   scale_fill_manual(values = c("#e5383b", "#fbc4ab", "#fff0f3")) +
+  xlim(c(1, 4)) +
+  geom_label( x=3.5, aes(y=labelPosition, label=label), size=3.5) +
+  theme_void() +
+  ggtitle("TOTAL OF WEAPON-RELATED CRIME TYPES BETWEEN 2018-2022") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "right") +
+  labs(caption = '*Other includes: bombs, explosives, and other handheld/tangible dangerous weapons')
+donut_p1
+
+```
+
+Looking at the donut chart, we can see the data sorted into three types of weapon-related crimes: Gun, Knife, and Other. The category "Other" refers to any other dangerous weapon-related crimes (e.g., bombs, explosives, crowbars, sticks, and any other handheld/tangible items). Between 2018-2022, there were a total of 31,892 weapon-related crimes reported, which consisted of 19,031 gun-related crimes; 5,465 knife-related crimes; and 7,396 other dangerous weapon-related crimes. 
+
+## 2: How efficiently is the City of Chicago's Police department handeling crime?
+```{r Task 6, echo=FALSE, warning= FALSE }
+
+
+# colnames(chicago)
+
+Sepe_date <- separate(chicago,Date,into = c("StartDate","Time"),sep = " ",remove = F,convert = T,fill = "left")
+start_date <- as.Date(Sepe_date$StartDate,"%m/%d/%Y")
+start_year <- month.day.year(start_date)$year #extract year
+
+chicagoyear <- mutate(chicago,start_year)
+# colnames(chicagoyear)
+
+chic <- chicago %>% group_by(Weapon,Year) %>% summarise(total_count=n()) %>% select(total_count,Weapon,Year)
+chic <- chic[-5,]
+chicwide <- cast(chic, Year~Weapon, value="total_count")
+data <- chicwide
+
+fig <- plot_ly(data, x = ~Year)
+fig <- fig %>% add_trace(y = ~GUN, name = 'GUN', mode = 'lines', line=list(width=3, color="#fff0f3"))
+fig <- fig %>% add_trace(y = ~KNIFE, name = 'KNIFE', mode = 'lines', line=list(width=3, color="#e5383b"))
+fig <- fig %>% add_trace(y = ~OTHER, name = 'OTHER', mode = 'lines', line=list(width=3, color="#fbc4ab"))
+fig <- fig %>% layout(hovermode = "x unified") %>%
+    layout(title = 'NUMBER OF INCIDENTS BY YEAR', plot_bgcolor = "#161a1d",
+      xaxis = list(title = 'Year'),
+      yaxis = list(title = 'Total Incidents' ) )
+fig
+
+```
+
+This chart presents a visual representation of the trend in crime over the years. It is evident that there has been a substantial decrease in crime from 2018 to 2020, and this decrease can be attributed to the restructuring of the Chicago Crime Department, as reported in the accompanying news article. The further drop from 2020 to 2021 is likely due to the impact of the COVID-19 pandemic on crime rates. This trend suggests that these efforts to address crime have been successful, and that the pandemic has had a profound effect on crime rates across the city.
+
+## 3: How did the number of arrests based on crime type look like during the height of the COVID-19 pandemic (2020)?
+```{r Task 7, echo=FALSE, warning= FALSE, fig.width = 10, fig.height = 6}
+
+## Arrests Based on Primary Type of Crime during Peak of COVID-19 Pandemic (2020)
+
+fig.height=40
+type <- chicago %>% filter(chicago$Year=="2020") %>% group_by(Primary.Type)
+type_total <- type %>% summarise(Count = n())
+
+arrests <- ggplot(type, aes(x=Primary.Type, y=Frequency, fill=Arrest)) +
+      geom_bar(stat="identity") + coord_flip() +
+      theme(axis.text.x = element_text(angle=90, hjust = 0.5)) + 
+      labs(y="Number of Crimes", x = "Primary Type of Crime", color="Arrest") +labs(title="PRIMARY TYPE OF CRIME ARRESTS DURING PEAK OF PANDEMIC (2020)") +
+      scale_fill_manual(values=c("#fbc4ab", "red"))
+arrests
+     
+```
+
+The stacked bar chart compares the level of arrests made after a reported crime occurred during the specific year of 2020. Each set of bars is categorized under the type of crime committed. The reason we chose to only look at 2020 was because it was during the peak of the COVID-19 pandemic, a time when there was a stay-at-home/lock down order. Looking at the height of each type of crime, we can see that there were high level of crimes involving assault, battery, robbery, and weapons violations. The minuscule heights of the crimes involving concealed carry license violations, criminal sexual assault, other offenses, and public peace violations occurred rarely, therefore we can barely see the bar graphs. Regarding the legend for colors, we see that red means that an arrest was made versus tan meaning there was no arrest made (perhaps due to just a warning or suspect escape, for example). Focusing on just the higher crime type occurrences, we can see that there were a higher rate of no arrest versus arrests as a result of a reported crime during 2020. The result that jumps out most is the weapons violations occurrences, as it is the highest bar; however, it is reassuring that at least more than half of the reported instances resulted in an arrest. On the other hand, the robbery crime type was mostly tan colored, which means there were almost no arrests made (the data for 2020 indicated that there was only a single arrest out of the total reported robberies).
+
+# CONCLUSION
+
+We have learned a lot from this data set of the City of Chicago's reported crimes. Our goal aims to hopefully provide a helpful analysis for the City of Chicago's Police Department in understanding what measures they can take to make the city a safer place. By using our findings, perhaps they can develop a strategy to manage the crime rate by combating against specific types of crimes. We split up our analysis into two parts: Crime Settings and Crime Types.
+
+In the first section, we chose to analyze Crime Settings. We chose to highlight a number of factors from the data set used to describe the occurring crimes reported. We started with the number of crimes per area. By looking at this number, we can pinpoint which areas of Chicago had higher crime rates than others. Next, we looked at the crime descriptions and their locations to determine what types of crimes were more frequent than others and where. We grouped the type of crimes by IUCR code, and found that assault occurred most. We then chose to look into which types of weapons were involved in these assaults. We picked the top 5 location description types, so perhaps the police can patrol along those areas more prominently. Lastly in this section, we looked at the most frequent occurrences of crime throughout a typical day. Again, the police can perhaps send patrols out more during these times of higher crime activity.
+
+In the second section, we chose to analyze Crime Types. We chose to focus on different types of crimes based on types of weapons involved. We started with the types of weapon-related crimes, with the totaling up of each kind reported (i.e., Gun, Knife, Other) within the last 5 years. We then used this info and looked at the trend of crimes involving these weapons. To our surprise, there seemed to be a drastic decrease in terms of weapon-based crimes. We did some additional research and according to a source we came across, Chicago had experienced one of the deadliest years of gun violence (back in 2016) in nearly two decades. As a result, efforts to drive down murder rates and other weapons-related crimes were made a top priority, which explains the decrease in our graphs. The last factor we looked at was the arrest statuses of reported crimes based on primary types during the peak of COVID-19 pandemic (2020). We specifically wanted to see this year in order to determine if it was an outlier since people were ordered to stay at home. We found that out of the crimes reported, most committed crimes did not result in arrests (possibly due to warning or suspects getting away). We may perhaps conclude that with most people in lockdown, more crimes were likely to occur with less people, such as police, out stopping them.
+
+Overall, it seems that the City of Chicago's Police Department has more than enough information from our analysis to strategize and tackle the issue of high crime rates in their city. By focusing on even the smaller crimes, the police can eventually narrow down the crime rate and reduce violence even. It seems that most reported weapon-related crimes involved guns, so maybe a tighter gun control policy could help make the city a safer place. The access to these types of weapons is a whole different story entirely, but we hope that our data can provide the necessary means to drive down crime rate.
+
+# REFERENCES
+
+https://data.cityofchicago.org/Public-Safety/Crimes-2001-to-Present/ijzp-q8t2/data
+https://amp.cnn.com/cnn/2019/12/31/us/chicago-murders-drop-2019/index.html
+https://www.cnn.com/2017/01/02/us/chicago-murder-rate-2016-visual-guide/index.html
+https://youtu.be/oJhvoXjeyso?list=PLaZuFfQk5gXMaQVhYkGwM0tlg9kHDZ7Pm
+
+
